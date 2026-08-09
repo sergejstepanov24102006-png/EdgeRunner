@@ -1,6 +1,5 @@
 import Foundation
 import Metal
-import EdgeRunnerMetal
 
 public final class DequantQ4KMKernel: Sendable {
     private let device: MTLDevice
