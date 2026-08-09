@@ -24,7 +24,7 @@ let package = Package(
             name: "EdgeRunnerMetal",
             dependencies: ["EdgeRunnerSharedTypes"],
             path: "Sources/EdgeRunnerMetal",
-            resources: [.process("Shaders")]
+            exclude: ["Shaders"]
         ),
         .target(
             name: "EdgeRunnerIO",
