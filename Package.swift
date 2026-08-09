@@ -1,5 +1,4 @@
 // swift-tools-version: 6.2
-
 import PackageDescription
 
 let package = Package(
@@ -10,13 +9,16 @@ let package = Package(
     ],
     products: [
         .library(name: "EdgeRunner", targets: ["EdgeRunner"]),
-        .library(name: "EspressoEdgeRunner", targets: ["EspressoEdgeRunner"]),
     ],
     targets: [
+        // Swift Playgrounds on iPad cannot build C-family targets.
+        // Keep the same module name, but provide the shared ABI parameter
+        // structs in pure Swift and exclude the original C headers/shim.
         .target(
             name: "EdgeRunnerSharedTypes",
             path: "Sources/EdgeRunnerSharedTypes",
-            publicHeadersPath: "include"
+            exclude: ["ShaderTypes.c", "include"],
+            sources: ["ShaderTypes.swift"]
         ),
         .target(
             name: "EdgeRunnerMetal",
@@ -38,37 +40,6 @@ let package = Package(
             name: "EdgeRunner",
             dependencies: ["EdgeRunnerCore", "EdgeRunnerIO", "EdgeRunnerSharedTypes"],
             path: "Sources/EdgeRunner"
-        ),
-        .target(
-            name: "ANEInteropIO",
-            path: "Sources/ANEInteropIO",
-            publicHeadersPath: "include",
-            linkerSettings: [.linkedFramework("IOSurface")]
-        ),
-        .target(
-            name: "EspressoEdgeRunner",
-            dependencies: ["EdgeRunnerIO", "EdgeRunnerMetal", "ANEInteropIO"],
-            path: "Sources/EspressoEdgeRunner"
-        ),
-        .testTarget(
-            name: "EdgeRunnerIOTests",
-            dependencies: ["EdgeRunnerIO", "EdgeRunnerMetal"]
-        ),
-        .testTarget(
-            name: "EdgeRunnerCoreTests",
-            dependencies: ["EdgeRunnerCore", "EdgeRunner", "EdgeRunnerMetal", "EdgeRunnerSharedTypes", "EdgeRunnerIO"]
-        ),
-        .testTarget(
-            name: "EdgeRunnerMetalTests",
-            dependencies: ["EdgeRunnerMetal", "EdgeRunnerSharedTypes"]
-        ),
-        .testTarget(
-            name: "EdgeRunnerTests",
-            dependencies: ["EdgeRunner"]
-        ),
-        .testTarget(
-            name: "EspressoEdgeRunnerTests",
-            dependencies: ["EspressoEdgeRunner", "EdgeRunnerIO", "EdgeRunnerMetal"]
         ),
     ]
 )
