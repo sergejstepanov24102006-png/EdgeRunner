@@ -20,12 +20,15 @@ let package = Package(
             exclude: ["ShaderTypes.c", "include"],
             sources: ["ShaderTypes.swift"]
         ),
-        .target(
-            name: "EdgeRunnerMetal",
-            dependencies: ["EdgeRunnerSharedTypes"],
-            path: "Sources/EdgeRunnerMetal",
-            exclude: ["Shaders"]
-        ),
+     .target(
+    name: "EdgeRunnerMetal",
+    dependencies: ["EdgeRunnerSharedTypes"],
+    path: "Sources/EdgeRunnerMetal",
+    exclude: ["Shaders"],
+    swiftSettings: [
+        .unsafeFlags(["-package-name", "EdgeRunner"])
+    ]
+),
         .target(
             name: "EdgeRunnerIO",
             dependencies: ["EdgeRunnerMetal"],
