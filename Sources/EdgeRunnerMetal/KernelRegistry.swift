@@ -48,34 +48,19 @@ package final class KernelRegistry {
         return pipeline
     }
 
-    /// Loads the primary Metal library from the bundle when available.
+    /// Swift Playgrounds on iPad does not accept .metal files in package targets.
+    /// Compile the embedded Metal source at runtime instead.
     private static func loadPrimaryLibrary(device: MTLDevice) throws -> MTLLibrary {
-        if let lib = try? device.makeDefaultLibrary(bundle: Bundle.module) {
-            return lib
-        }
-        return try compileSourceLibrary(device: device)
+        try compileEmbeddedSourceLibrary(device: device)
     }
 
-    /// SwiftPM copies .metal files as resources rather than compiling them,
-    /// so we can compile the shader source at runtime by concatenating all
-    /// bundled .metal files when a requested function is absent from the
-    /// primary library.
-    private static func compileSourceLibrary(device: MTLDevice) throws -> MTLLibrary {
-        let bundle = Bundle.module
-        let metalURLs = bundle.urls(forResourcesWithExtension: "metal", subdirectory: nil) ?? []
-        guard !metalURLs.isEmpty else {
+    private static func compileEmbeddedSourceLibrary(device: MTLDevice) throws -> MTLLibrary {
+        let source = EmbeddedMetalShaders.source
+        guard !source.isEmpty else {
             throw KernelRegistryError.shaderSourceNotFound
         }
-        // Concatenate all shader sources; each file gets a separator comment for clarity
-        let combinedSource = try metalURLs
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            .map { url -> String in
-                let src = try String(contentsOf: url, encoding: .utf8)
-                return "// --- \(url.lastPathComponent) ---\n" + src
-            }
-            .joined(separator: "\n\n")
         let options = MTLCompileOptions()
-        return try device.makeLibrary(source: combinedSource, options: options)
+        return try device.makeLibrary(source: source, options: options)
     }
 
     private func resolveFunction(named name: String) throws -> MTLFunction {
@@ -87,7 +72,7 @@ package final class KernelRegistry {
             if let cachedLibrary {
                 return cachedLibrary
             }
-            let compiledLibrary = MetalLibraryHandle(rawValue: try Self.compileSourceLibrary(device: device))
+            let compiledLibrary = MetalLibraryHandle(rawValue: try Self.compileEmbeddedSourceLibrary(device: device))
             cachedLibrary = compiledLibrary
             return compiledLibrary
         }
