@@ -1,6 +1,5 @@
 import Foundation
 import Metal
-import EdgeRunnerMetal
 
 public final class DequantQ1_0_g128Kernel: Sendable {
     private struct Q1DequantParams {
