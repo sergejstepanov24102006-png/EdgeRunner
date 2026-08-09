@@ -1,12 +1,12 @@
 import Foundation
 import Metal
 
-final class KernelRegistry {
+package final class KernelRegistry {
     private let device: MTLDevice
     private let library: MTLLibrary
     private var pipelines: [String: MTLComputePipelineState] = [:]
 
-    init(device: MTLDevice) throws {
+    package init(device: MTLDevice) throws {
         self.device = device
 
         let options = MTLCompileOptions()
@@ -17,7 +17,10 @@ final class KernelRegistry {
         )
     }
 
-    func pipeline(for name: String) throws -> MTLComputePipelineState {
+    package func pipeline(
+        for name: String
+    ) throws -> MTLComputePipelineState {
+
         if let cached = pipelines[name] {
             return cached
         }
@@ -34,11 +37,11 @@ final class KernelRegistry {
         return pipeline
     }
 
-    var metalLibrary: MTLLibrary {
+    package var metalLibrary: MTLLibrary {
         library
     }
 }
 
-enum KernelRegistryError: Error {
+package enum KernelRegistryError: Error {
     case functionNotFound(String)
 }
