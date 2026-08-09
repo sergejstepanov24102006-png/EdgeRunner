@@ -1,6 +1,7 @@
 // swift-tools-version: 6.2
 
 import PackageDescription
+#error("FRESH_EDGERUNNER_REVISION")
 
 let package = Package(
     name: "EdgeRunner",
