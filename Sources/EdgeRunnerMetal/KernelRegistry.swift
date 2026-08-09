@@ -1,91 +1,44 @@
 import Foundation
 import Metal
-import Synchronization
 
-package struct MetalLibraryHandle: @unchecked Sendable {
-    // @unchecked Sendable is limited to the Metal protocol wrapper.
-    // The wrapped MTLLibrary stays inside package-internal APIs.
-    package let rawValue: MTLLibrary
-}
-
-package struct MetalPipelineHandle: @unchecked Sendable {
-    // @unchecked Sendable is limited to the Metal protocol wrapper.
-    // The wrapped MTLComputePipelineState is cached under Mutex protection.
-    package let rawValue: MTLComputePipelineState
-}
-
-package final class KernelRegistry {
-    private let primaryLibrary: MetalLibraryHandle
-    private let fallbackSourceLibrary: Mutex<MetalLibraryHandle?>
-    private let cache: Mutex<PipelineCache>
+final class KernelRegistry {
     private let device: MTLDevice
+    private let library: MTLLibrary
+    private var pipelines: [String: MTLComputePipelineState] = [:]
 
-    /// The compiled Metal library. Exposed for callers that need to create
-    /// functions with `MTLFunctionConstantValues` (e.g. fused-pattern kernels).
-    package var metalLibrary: MTLLibrary { primaryLibrary.rawValue }
-
-    private struct PipelineCache: Sendable {
-        var entries: [String: MetalPipelineHandle] = [:]
-    }
-
-    package init(device: MTLDevice) throws {
+    init(device: MTLDevice) throws {
         self.device = device
-        self.primaryLibrary = MetalLibraryHandle(rawValue: try Self.loadPrimaryLibrary(device: device))
-        self.fallbackSourceLibrary = Mutex(nil)
-        self.cache = Mutex(PipelineCache())
+
+        let options = MTLCompileOptions()
+
+        self.library = try device.makeLibrary(
+            source: EmbeddedMetalShaders.source,
+            options: options
+        )
     }
 
-    package func pipeline(for name: String) throws -> MTLComputePipelineState {
-        if let cached = cache.withLock({ $0.entries[name] }) {
-            return cached.rawValue
+    func pipeline(for name: String) throws -> MTLComputePipelineState {
+        if let cached = pipelines[name] {
+            return cached
         }
-        let function = try resolveFunction(named: name)
-        let descriptor = MTLComputePipelineDescriptor()
-        descriptor.computeFunction = function
-        descriptor.supportIndirectCommandBuffers = true
-        let pipeline = try device.makeComputePipelineState(descriptor: descriptor, options: [], reflection: nil)
-        cache.withLock { $0.entries[name] = MetalPipelineHandle(rawValue: pipeline) }
+
+        guard let function = library.makeFunction(name: name) else {
+            throw KernelRegistryError.functionNotFound(name)
+        }
+
+        let pipeline = try device.makeComputePipelineState(
+            function: function
+        )
+
+        pipelines[name] = pipeline
         return pipeline
     }
 
-    /// Swift Playgrounds on iPad does not accept .metal files in package targets.
-    /// Compile the embedded Metal source at runtime instead.
-    private static func loadPrimaryLibrary(device: MTLDevice) throws -> MTLLibrary {
-        try compileEmbeddedSourceLibrary(device: device)
-    }
-
-    private static func compileEmbeddedSourceLibrary(device: MTLDevice) throws -> MTLLibrary {
-        let source = EmbeddedMetalShaders.source
-        guard !source.isEmpty else {
-            throw KernelRegistryError.shaderSourceNotFound
-        }
-        let options = MTLCompileOptions()
-        return try device.makeLibrary(source: source, options: options)
-    }
-
-    private func resolveFunction(named name: String) throws -> MTLFunction {
-        if let function = primaryLibrary.rawValue.makeFunction(name: name) {
-            return function
-        }
-
-        let fallbackLibrary = try fallbackSourceLibrary.withLock { cachedLibrary -> MetalLibraryHandle in
-            if let cachedLibrary {
-                return cachedLibrary
-            }
-            let compiledLibrary = MetalLibraryHandle(rawValue: try Self.compileEmbeddedSourceLibrary(device: device))
-            cachedLibrary = compiledLibrary
-            return compiledLibrary
-        }
-
-        if let function = fallbackLibrary.rawValue.makeFunction(name: name) {
-            return function
-        }
-
-        throw KernelRegistryError.functionNotFound(name)
+    var metalLibrary: MTLLibrary {
+        library
     }
 }
 
-package enum KernelRegistryError: Error, Sendable {
+enum KernelRegistryError: Error {
     case functionNotFound(String)
-    case shaderSourceNotFound
 }
