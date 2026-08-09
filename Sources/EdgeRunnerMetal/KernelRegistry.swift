@@ -1,6 +1,8 @@
 import Foundation
 import Metal
 
+public let ER_KERNEL_PROBE: Int = 12345
+
 public final class KernelRegistry {
     private let device: MTLDevice
     private let library: MTLLibrary
